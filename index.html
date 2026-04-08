@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zodiac Finder & Constellation Personality</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --accent: #fbbf24;
+            --bg: #0f172a;
+            --card: rgba(30, 41, 59, 0.8); /* Transparan untuk efek glassmorphism */
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden; /* Mencegah scrollbar muncul karena canvas */
+            position: relative;
+        }
+
+        /* Latar Belakang Rasi Bintang Dynamic */
+        #constellation-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* Di belakang konten */
+        }
+
+        .container {
+            background: var(--card);
+            padding: 2.5rem;
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(15px); /* Efek blur di belakang kartu */
+            position: relative;
+            z-index: 10; /* Di atas canvas */
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .field {
+            flex: 1;
+            text-align: left;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select {
+            width: 100%;
+            padding: 14px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 14px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-glow);
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.3);
+        }
+
+        button:active { transform: translateY(0); }
+
+        .result-box {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .result-box.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        #zodiac-name {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin: 5px 0;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+        }
+
+        .traits-container {
+            margin-top: 15px;
+            text-align: left;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+            border-top: 1px solid #334155;
+            padding-top: 20px;
+        }
+
+        .trait-tag {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        /* Responsive Fix */
+        @media (max-width: 480px) {
+            .container { padding: 1.5rem; }
+            h2 { font-size: 1.5rem; }
+            #zodiac-name { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="constellation-canvas"></canvas>
+
+    <div class="container">
+        <h2>Zodiac Finder</h2>
+        
+        <div class="input-group">
+            <div class="field">
+                <label>Tanggal</label>
+                <select id="tgl"></select>
+            </div>
+            <div class="field">
+                <label>Bulan</label>
+                <select id="bln">
+                    <option value="1">Januari</option>
+                    <option value="2">Februari</option>
+                    <option value="3">Maret</option>
+                    <option value="4">April</option>
+                    <option value="5">Mei</option>
+                    <option value="6">Juni</option>
+                    <option value="7">Juli</option>
+                    <option value="8">Agustus</option>
+                    <option value="9">September</option>
+                    <option value="10">Oktober</option>
+                    <option value="11">November</option>
+                    <option value="12">Desember</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="btnHitung" onclick="cekZodiak()">Lihat Karakter Anda</button>
+
+        <div class="result-box" id="resBox">
+            <div class="trait-tag" id="zodiac-range">Rentang Tanggal</div>
+            <p id="zodiac-name">?</p>
+            <div class="traits-container" id="zodiac-traits">
+                Karakteristik Anda akan muncul di sini.
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 1. INISIALISASI TANGGAL ---
+    const selectTgl = document.getElementById('tgl');
+    for (let i = 1; i <= 31; i++) {
+        let opt = document.createElement('option');
+        opt.value = i; opt.innerHTML = i;
+        selectTgl.appendChild(opt);
+    }
+
+    // --- 2. DATA ZODIAK ---
+    const zodiacData = {
+        "Aries": "Berani, penuh semangat, dan percaya diri. Cenderung impulsif namun sangat kompetitif dan jujur.",
+        "Taurus": "Sangat setia, sabar, dan praktis. Menyukai kenyamanan dan keindahan, namun terkadang keras kepala.",
+        "Gemini": "Cerdas, mudah beradaptasi, dan komunikatif. Memiliki rasa ingin tahu tinggi namun sulit untuk fokus pada satu hal.",
+        "Cancer": "Sangat emosional, intuitif, dan protektif terhadap orang tersayang. Memiliki empati yang sangat dalam.",
+        "Leo": "Kreatif, hangat, dan berjiwa pemimpin. Suka menjadi pusat perhatian dan memiliki harga diri yang tinggi.",
+        "Virgo": "Setia, analitis, dan pekerja keras. Sangat memperhatikan detail dan cenderung perfeksionis.",
+        "Libra": "Diplomatis, adil, dan menyukai harmoni. Sulit mengambil keputusan karena selalu menimbang dua sisi.",
+        "Scorpio": "Bertekad kuat, berani, dan misterius. Memiliki emosi yang intens dan sangat setia sebagai kawan.",
+        "Sagittarius": "Optimis, jujur, dan suka kebebasan. Senang berpetualang dan memiliki selera humor yang bagus.",
+        "Capricorn": "Disiplin, bertanggung jawab, dan sangat ambisius. Menghargai tradisi dan sangat mandiri.",
+        "Aquarius": "Progresif, mandiri, dan unik. Berjiwa kemanusiaan tinggi namun terkadang terlihat dingin secara emosional.",
+        "Pisces": "Sangat artistik, bijaksana, dan penuh kasih sayang. Seringkali sangat imajinatif dan intuitif."
+    };
+
+    // --- 3. LOGIKA UTAMA (CEK ZODIAK) ---
+    function cekZodiak() {
+        const d = parseInt(document.getElementById('tgl').value);
+        const m = parseInt(document.getElementById('bln').value);
+        let n = ""; let r = "";
+
+        // Logika rentang tanggal
+        if ((m == 3 && d >= 21) || (m == 4 && d <= 19)) { n = "Aries"; r = "21 Mar - 19 Apr"; }
+        else if ((m == 4 && d >= 20) || (m == 5 && d <= 20)) { n = "Taurus"; r = "20 Apr - 20 Mei"; }
+        else if ((m == 5 && d >= 21) || (m == 6 && d <= 20)) { n = "Gemini"; r = "21 Mei - 20 Jun"; }
+        else if ((m == 6 && d >= 21) || (m == 7 && d <= 22)) { n = "Cancer"; r = "21 Jun - 22 Jul"; }
+        else if ((m == 7 && d >= 23) || (m == 8 && d <= 22)) { n = "Leo"; r = "23 Jul - 22 Agu"; }
+        else if ((m == 8 && d >= 23) || (m == 9 && d <= 22)) { n = "Virgo"; r = "23 Agu - 22 Sep"; }
+        else if ((m == 9 && d >= 23) || (m == 10 && d <= 22)) { n = "Libra"; r = "23 Sep - 22 Okt"; }
+        else if ((m == 10 && d >= 23) || (m == 11 && d <= 21)) { n = "Scorpio"; r = "23 Okt - 21 Nov"; }
+        else if ((m == 11 && d >= 22) || (m == 12 && d <= 21)) { n = "Sagittarius"; r = "22 Nov - 21 Des"; }
+        else if ((m == 12 && d >= 22) || (m == 1 && d <= 19)) { n = "Capricorn"; r = "22 Des - 19 Jan"; }
+        else if ((m == 1 && d >= 20) || (m == 2 && d <= 18)) { n = "Aquarius"; r = "20 Jan - 18 Feb"; }
+        else { n = "Pisces"; r = "19 Feb - 20 Mar"; }
+
+        // Tampilkan Hasil
+        document.getElementById('zodiac-name').innerText = n;
+        document.getElementById('zodiac-range').innerText = r;
+        document.getElementById('zodiac-traits').innerText = "Ciri Sifat: " + zodiacData[n];
+        document.getElementById('resBox').classList.add('active');
+    }
+
+    // --- 4. ENTER KEY SUPPORT ---
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') cekZodiak();
+    });
+
+    // --- 5. LOGIKA BACKGROUND RASI BINTANG (CANVAS) ---
+    const canvas = document.getElementById('constellation-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set ukuran canvas penuh
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+    
+    // Resize handler
+    window.addEventListener('resize', function() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    });
+    
+    const stars = [];
+    const numStars = width < 500 ? 50 : 100; // Lebih sedikit bintang di mobile
+    
+    // Konstruktor Bintang
+    function Star() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.vx = (Math.random() - 0.5) * 0.2; // Kecepatan gerak pelan
+        this.vy = (Math.random() - 0.5) * 0.2;
+        this.radius = Math.random() * 1.5 + 0.5; // Ukuran variatif
+        this.opacity = Math.random() * 0.5 + 0.2; // Transparansi variatif
+    }
+    
+    Star.prototype.draw = function() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.random() * Math.PI * 2);
+        ctx.fillStyle = `rgba(165, 180, 252, ${this.opacity})`; // Warna bintang biru muda
+        ctx.fill();
+    };
+    
+    Star.prototype.update = function() {
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Memantul jika kena dinding canvas
+        if (this.x < 0 || this.x > width) this.vx = -this.vx;
+        if (this.y < 0 || this.y > height) this.vy = -this.vy;
+    };
+    
+    // Isi array bintang
+    for (let i = 0; i < numStars; i++) {
+        stars.push(new Star());
+    }
+    
+    // Fungsi Menghubungkan Bintang (Garis Rasi)
+    function drawLines() {
+        const maxDist = 150; // Jarak maksimum untuk garis
+        for (let i = 0; i < numStars; i++) {
+            for (let j = i + 1; j < numStars; j++) {
+                const dx = stars[i].x - stars[j].x;
+                const dy = stars[i].y - stars[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < maxDist) {
+                    ctx.beginPath();
+                    ctx.moveTo(stars[i].x, stars[i].y);
+                    ctx.lineTo(stars[j].x, stars[j].y);
+                    // Ketebalan garis dan transparansi berdasarkan jarak
+                    ctx.strokeStyle = `rgba(99, 102, 241, ${1 - dist / maxDist})`; 
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+    
+    // Animation Loop
+    function animate() {
+        ctx.clearRect(0, 0, width, height); // Bersihkan canvas setiap frame
+        
+        stars.forEach(star => {
+            star.update();
+            star.draw();
+        });
+        
+        drawLines();
+        
+        requestAnimationFrame(animate); // Lanjutkan animasi
+    }
+    
+    // Mulai animasi
+    animate();
+</script>
+
+</body>
+</html>
